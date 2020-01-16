@@ -1,0 +1,2 @@
+# checkduplicatebitmap
+检测内存中的重复bitmap对象
