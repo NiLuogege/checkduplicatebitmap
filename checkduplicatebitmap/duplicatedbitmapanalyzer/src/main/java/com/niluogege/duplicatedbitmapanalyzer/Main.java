@@ -1,5 +1,6 @@
 package com.niluogege.duplicatedbitmapanalyzer;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.squareup.haha.perflib.ArrayInstance;
 import com.squareup.haha.perflib.ClassInstance;
@@ -36,7 +37,7 @@ public class Main {
                 MemoryMappedFileBuffer mappedFileBuffer = new MemoryMappedFileBuffer(new File(args[0]));
                 HprofParser parser = new HprofParser(mappedFileBuffer);
                 // 获得snapshot
-                snapshot =parser.parse();
+                snapshot = parser.parse();
                 // 获得Bitmap Class
                 ClassObj bitmapClass = snapshot.findClass("android.graphics.Bitmap");
                 //获得heap, 只需要分析app和default heap即可
@@ -56,10 +57,13 @@ public class Main {
                             String md5 = MD5Utils.getMD5(buffer.getValues());
                             if (bitmaps.containsKey(md5)) {//重复
                                 BitmapWapper wapper = bitmaps.get(md5);
+                                wapper.instances.add(bitmapInstance);
                                 wapper.count += 1;
                             } else {//不重复
                                 BitmapWapper wapper = new BitmapWapper();
-                                wapper.instance = bitmapInstance;
+                                ArrayList<Instance> instances = new ArrayList<>();
+                                instances.add(bitmapInstance);
+                                wapper.instances = instances;
                                 wapper.count = 1;
                                 bitmaps.put(md5, wapper);
                             }
@@ -111,18 +115,26 @@ public class Main {
         for (String md5 : bitmaps.keySet()) {
             BitmapWapper wapper = bitmaps.get(md5);
             if (wapper.count > 1) {
-                ArrayInstance buffer = HahaHelper.fieldValue(((ClassInstance) wapper.instance).getValues(), "mBuffer");
-                Object width = HahaHelper.fieldValue(((ClassInstance) wapper.instance).getValues(), "mWidth");
-                Object height = HahaHelper.fieldValue(((ClassInstance) wapper.instance).getValues(), "mHeight");
-
                 JSONObject object = new JSONObject();
                 object.put("duplcateCount", wapper.count);
                 object.put("bufferHash", md5);
-                object.put("width", width);
-                object.put("height", height);
-                object.put("bufferSize", buffer.getSize());
-                object.put("stacks", getStack(wapper.instance));
 
+
+                JSONArray array = new JSONArray();
+                for (Instance instance : wapper.instances) {
+                    JSONObject bitmap = new JSONObject();
+                    ArrayInstance buffer = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mBuffer");
+                    Object width = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mWidth");
+                    Object height = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mHeight");
+
+                    bitmap.put("width", width);
+                    bitmap.put("height", height);
+                    bitmap.put("bufferSize", buffer.getSize());
+                    bitmap.put("stacks", getStack(instance));
+
+                    array.add(bitmap);
+                }
+                object.put("bitmaps", array);
                 System.out.println(JsonUtil.formatJson(object.toJSONString()));
             }
 
