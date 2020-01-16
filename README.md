@@ -1,2 +1,2 @@
 # checkduplicatebitmap
-检测内存中的重复bitmap对象
+检测内存中的重复bitmap对象，和对象引用的堆栈
