@@ -1,16 +1,23 @@
 package com.niluogege.duplicatedbitmapanalyzer;
 
 import com.alibaba.fastjson.JSONObject;
-import com.android.tools.perflib.captures.MemoryMappedFileBuffer;
 import com.squareup.haha.perflib.ArrayInstance;
 import com.squareup.haha.perflib.ClassInstance;
 import com.squareup.haha.perflib.ClassObj;
 import com.squareup.haha.perflib.Heap;
+import com.squareup.haha.perflib.HprofParser;
 import com.squareup.haha.perflib.Instance;
 import com.squareup.haha.perflib.Snapshot;
+import com.squareup.haha.perflib.io.MemoryMappedFileBuffer;
+import com.squareup.leakcanary.AnalysisResult;
+import com.squareup.leakcanary.AnalyzerProgressListener;
+import com.squareup.leakcanary.ExcludedRefs;
+import com.squareup.leakcanary.HeapAnalyzer;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -21,13 +28,15 @@ import java.util.Map;
  */
 public class Main {
     private static Map<String, BitmapWapper> bitmaps = new HashMap<>();
+    private static Snapshot snapshot;
 
     public static void main(String[] args) {
         if (args.length > 0) {
             try {
                 MemoryMappedFileBuffer mappedFileBuffer = new MemoryMappedFileBuffer(new File(args[0]));
+                HprofParser parser = new HprofParser(mappedFileBuffer);
                 // 获得snapshot
-                Snapshot snapshot = Snapshot.createSnapshot(mappedFileBuffer);
+                snapshot =parser.parse();
                 // 获得Bitmap Class
                 ClassObj bitmapClass = snapshot.findClass("android.graphics.Bitmap");
                 //获得heap, 只需要分析app和default heap即可
@@ -70,6 +79,34 @@ public class Main {
         }
     }
 
+    private static String getStack(Instance instance) {
+
+        String stacks = "";
+
+        ExcludedRefs NO_EXCLUDED_REFS = ExcludedRefs.builder().build();
+        HeapAnalyzer heapAnalyzer = new HeapAnalyzer(NO_EXCLUDED_REFS, AnalyzerProgressListener.NONE, new ArrayList<>());
+        Class<? extends HeapAnalyzer> heapAnalyzerClass = heapAnalyzer.getClass();
+
+        try {
+            Method method = heapAnalyzerClass.getDeclaredMethod("findLeakTrace",
+                    long.class,
+                    Snapshot.class,
+                    Instance.class,
+                    boolean.class);
+
+            method.setAccessible(true);
+
+            AnalysisResult analysisResult = (AnalysisResult) method.invoke(heapAnalyzer, System.nanoTime(), snapshot, instance, false);
+            stacks = analysisResult.leakTrace.toString();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return stacks;
+
+    }
+
     private static void print() {
         for (String md5 : bitmaps.keySet()) {
             BitmapWapper wapper = bitmaps.get(md5);
@@ -84,8 +121,9 @@ public class Main {
                 object.put("width", width);
                 object.put("height", height);
                 object.put("bufferSize", buffer.getSize());
+                object.put("stacks", getStack(wapper.instance));
 
-                System.out.println(object.toJSONString());
+                System.out.println(JsonUtil.formatJson(object.toJSONString()));
             }
 
         }

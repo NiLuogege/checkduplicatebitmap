@@ -6,7 +6,7 @@ version 1.0
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'com.squareup.haha:haha:2.1'
+    implementation 'com.squareup.haha:haha:2.0.4'
     implementation 'com.alibaba:fastjson:1.2.61'
 }
 

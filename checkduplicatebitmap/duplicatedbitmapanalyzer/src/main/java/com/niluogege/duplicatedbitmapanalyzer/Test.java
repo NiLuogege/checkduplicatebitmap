@@ -7,7 +7,7 @@ public class Test {
 
     public static void main(String[] args) {
         String[] arr = {
-            "E:\\111work\\code\\code_me\\checkduplicatebitmap\\b.hprof"
+            "E:\\111work\\code\\code_me\\myGitHub\\checkduplicatebitmap\\checkduplicatebitmap\\b.hprof"
         };
         Main.main(arr);
     }
