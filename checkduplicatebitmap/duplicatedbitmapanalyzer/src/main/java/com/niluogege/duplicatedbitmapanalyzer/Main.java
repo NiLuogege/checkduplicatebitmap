@@ -15,14 +15,18 @@ import com.squareup.leakcanary.AnalyzerProgressListener;
 import com.squareup.leakcanary.ExcludedRefs;
 import com.squareup.leakcanary.HeapAnalyzer;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.imageio.ImageIO;
 
 /**
  * Created by niluogege on 2020/1/16.
@@ -75,7 +79,7 @@ public class Main {
 
                 print();
 
-            } catch (IOException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         } else {
@@ -111,7 +115,7 @@ public class Main {
 
     }
 
-    private static void print() {
+    private static void print() throws Exception {
         for (String md5 : bitmaps.keySet()) {
             BitmapWapper wapper = bitmaps.get(md5);
             if (wapper.count > 1) {
@@ -124,8 +128,8 @@ public class Main {
                 for (Instance instance : wapper.instances) {
                     JSONObject bitmap = new JSONObject();
                     ArrayInstance buffer = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mBuffer");
-                    Object width = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mWidth");
-                    Object height = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mHeight");
+                    Integer width = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mWidth");
+                    Integer height = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mHeight");
 
                     bitmap.put("width", width);
                     bitmap.put("height", height);
@@ -133,10 +137,61 @@ public class Main {
                     bitmap.put("stacks", getStack(instance));
 
                     array.add(bitmap);
+
+                    generateImage(md5, buffer, width, height);
                 }
                 object.put("bitmaps", array);
                 System.out.println(JsonUtil.formatJson(object.toJSONString()));
             }
+
+        }
+    }
+
+    /**
+     * 生成图片
+     * @param md5
+     * @param buffer
+     * @param width
+     * @param height
+     * @throws NoSuchMethodException
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     * @throws IOException
+     */
+    private static void generateImage(String md5, ArrayInstance buffer, Integer width, Integer height) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, IOException {
+        Class<? extends ArrayInstance> bufferClass = buffer.getClass();
+        Method asRawByteArray = bufferClass.getDeclaredMethod("asRawByteArray", int.class, int.class);
+        asRawByteArray.setAccessible(true);
+        byte[] data = (byte[]) asRawByteArray.invoke(buffer, 0, buffer.getValues().length);
+        String filePath = "E:\\111work\\code\\code_me\\myGitHub\\checkduplicatebitmap\\checkduplicatebitmap\\" + md5 + ".png";
+        ARGB8888_BitmapExtractor.getImage(width, height, data, filePath);
+    }
+
+    /**
+     * 根据 byte[] 保存图片到文件
+     * 参考
+     * https://github.com/JetBrains/adt-tools-base/blob/master/ddmlib/src/main/java/com/android/ddmlib/BitmapDecoder.java
+     */
+    private static class ARGB8888_BitmapExtractor {
+
+        public static void getImage(int width, int height, byte[] rgba, String pngFilePath) throws IOException {
+            BufferedImage bufferedImage = new BufferedImage(width, height,
+                    BufferedImage.TYPE_INT_ARGB);
+
+            for (int y = 0; y < height; y++) {
+                int stride = y * width;
+                for (int x = 0; x < width; x++) {
+                    int i = (stride + x) * 4;
+                    long rgb = 0;
+                    rgb |= ((long) rgba[i] & 0xff) << 16; // r
+                    rgb |= ((long) rgba[i + 1] & 0xff) << 8;  // g
+                    rgb |= ((long) rgba[i + 2] & 0xff);       // b
+                    rgb |= ((long) rgba[i + 3] & 0xff) << 24; // a
+                    bufferedImage.setRGB(x, y, (int) (rgb & 0xffffffffl));
+                }
+            }
+            File outputfile = new File(pngFilePath);
+            ImageIO.write(bufferedImage, "png", outputfile);
 
         }
     }
