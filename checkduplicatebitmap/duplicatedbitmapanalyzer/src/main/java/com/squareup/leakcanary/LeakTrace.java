@@ -39,32 +39,43 @@ public final class LeakTrace implements Serializable {
         this.expectedReachability = expectedReachability;
     }
 
+//    @Override
+//    public String toString() {
+//        StringBuilder sb = new StringBuilder();
+//        for (int i = 0; i < elements.size(); i++) {
+//            LeakTraceElement element = elements.get(i);
+//            sb.append("* ");
+//            if (i != 0) {
+//                sb.append("↳ ");
+//            }
+//            boolean maybeLeakCause = false;
+//            if (expectedReachability.size() > 0) {
+//                Reachability currentReachability = expectedReachability.get(i);
+//                if (currentReachability == Reachability.UNKNOWN) {
+//                    maybeLeakCause = true;
+//                } else if (currentReachability == Reachability.REACHABLE) {
+//                    if (i < elements.size() - 1) {
+//                        Reachability nextReachability = expectedReachability.get(i + 1);
+//                        if (nextReachability != Reachability.REACHABLE) {
+//                            maybeLeakCause = true;
+//                        }
+//                    } else {
+//                        maybeLeakCause = true;
+//                    }
+//                }
+//            }
+//            sb.append(element.toString(maybeLeakCause)).append("\n");
+//        }
+//        return sb.toString();
+//    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < elements.size(); i++) {
             LeakTraceElement element = elements.get(i);
             sb.append("* ");
-            if (i != 0) {
-                sb.append("↳ ");
-            }
-            boolean maybeLeakCause = false;
-            if (expectedReachability.size() > 0) {
-                Reachability currentReachability = expectedReachability.get(i);
-                if (currentReachability == Reachability.UNKNOWN) {
-                    maybeLeakCause = true;
-                } else if (currentReachability == Reachability.REACHABLE) {
-                    if (i < elements.size() - 1) {
-                        Reachability nextReachability = expectedReachability.get(i + 1);
-                        if (nextReachability != Reachability.REACHABLE) {
-                            maybeLeakCause = true;
-                        }
-                    } else {
-                        maybeLeakCause = true;
-                    }
-                }
-            }
-            sb.append(element.toString(maybeLeakCause)).append("\n");
+            sb.append(element.toString(false)).append("\n");
         }
         return sb.toString();
     }
