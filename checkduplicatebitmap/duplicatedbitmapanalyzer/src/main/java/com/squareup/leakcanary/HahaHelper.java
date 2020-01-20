@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.niluogege.duplicatedbitmapanalyzer;
+package com.squareup.leakcanary;
 
 import com.squareup.haha.perflib.ArrayInstance;
 import com.squareup.haha.perflib.ClassInstance;
@@ -21,11 +21,16 @@ import com.squareup.haha.perflib.ClassObj;
 import com.squareup.haha.perflib.Field;
 import com.squareup.haha.perflib.Instance;
 import com.squareup.haha.perflib.Type;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.squareup.leakcanary.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 public final class HahaHelper {
@@ -49,7 +54,7 @@ public final class HahaHelper {
 
 
 
-  static boolean extendsThread(ClassObj clazz) {
+  public static boolean extendsThread(ClassObj clazz) {
     boolean extendsThread = false;
     ClassObj parentClass = clazz;
     while (parentClass.getSuperClassObj() != null) {
@@ -91,7 +96,7 @@ public final class HahaHelper {
     return classInstance.getValues();
   }
 
-  static <T> T fieldValue(List<ClassInstance.FieldValue> values, String fieldName) {
+  public static <T> T fieldValue(List<ClassInstance.FieldValue> values, String fieldName) {
     for (ClassInstance.FieldValue fieldValue : values) {
       if (fieldValue.getField().getName().equals(fieldName)) {
         //noinspection unchecked
@@ -113,5 +118,97 @@ public final class HahaHelper {
 
   private HahaHelper() {
     throw new AssertionError();
+  }
+
+  public static String threadName(Instance holder) {
+    List<ClassInstance.FieldValue> values = classInstanceValues(holder);
+    Object nameField = fieldValue(values, "name");
+    if (nameField == null) {
+      // Sometimes we can't find the String at the expected memory address in the heap dump.
+      // See https://github.com/square/leakcanary/issues/417 .
+      return "Thread name not available";
+    }
+    return asString(nameField);
+  }
+
+
+  /** Given a string instance from the heap dump, this returns its actual string value. */
+  static String asString(Object stringObject) {
+    checkNotNull(stringObject, "stringObject");
+    Instance instance = (Instance) stringObject;
+    List<ClassInstance.FieldValue> values = classInstanceValues(instance);
+
+    Integer count = fieldValue(values, "count");
+    checkNotNull(count, "count");
+    if (count == 0) {
+      return "";
+    }
+
+    Object value = fieldValue(values, "value");
+    checkNotNull(value, "value");
+
+    Integer offset;
+    ArrayInstance array;
+    if (isCharArray(value)) {
+      array = (ArrayInstance) value;
+
+      offset = 0;
+      // < API 23
+      // As of Marshmallow, substrings no longer share their parent strings' char arrays
+      // eliminating the need for String.offset
+      // https://android-review.googlesource.com/#/c/83611/
+      if (hasField(values, "offset")) {
+        offset = fieldValue(values, "offset");
+        checkNotNull(offset, "offset");
+      }
+
+      char[] chars = array.asCharArray(offset, count);
+      return new String(chars);
+    } else if (isByteArray(value)) {
+      // In API 26, Strings are now internally represented as byte arrays.
+      array = (ArrayInstance) value;
+
+      // HACK - remove when HAHA's perflib is updated to https://goo.gl/Oe7ZwO.
+      try {
+        Method asRawByteArray =
+                ArrayInstance.class.getDeclaredMethod("asRawByteArray", int.class, int.class);
+        asRawByteArray.setAccessible(true);
+        byte[] rawByteArray = (byte[]) asRawByteArray.invoke(array, 0, count);
+        return new String(rawByteArray, Charset.forName("UTF-8"));
+      } catch (NoSuchMethodException e) {
+        throw new RuntimeException(e);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      } catch (InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
+    } else {
+      throw new UnsupportedOperationException("Could not find char array in " + instance);
+    }
+  }
+
+  private static boolean isByteArray(Object value) {
+    return value instanceof ArrayInstance && ((ArrayInstance) value).getArrayType() == Type.BYTE;
+  }
+
+
+  /**
+   * This returns a string representation of any object or value passed in.
+   */
+  public static String valueAsString(Object value) {
+    String stringValue;
+    if (value == null) {
+      stringValue = "null";
+    } else if (value instanceof ClassInstance) {
+      String valueClassName = ((ClassInstance) value).getClassObj().getClassName();
+      if (valueClassName.equals(String.class.getName())) {
+        stringValue = '"' + asString(value) + '"';
+      } else {
+        stringValue = value.toString();
+      }
+    } else {
+      stringValue = value.toString();
+    }
+    return stringValue;
   }
 }

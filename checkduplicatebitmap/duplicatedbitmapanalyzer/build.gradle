@@ -8,6 +8,7 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.squareup.haha:haha:2.0.4'
     implementation 'com.alibaba:fastjson:1.2.61'
+    implementation 'androidx.annotation:annotation:1.1.0'
 }
 
 
