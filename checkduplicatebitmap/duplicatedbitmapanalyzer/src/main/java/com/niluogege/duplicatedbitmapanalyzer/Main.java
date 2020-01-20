@@ -139,7 +139,7 @@ public class Main {
 //    }
 
 
-    private static String getStack(Instance instance){
+    private static String getStack(Instance instance) {
         ExcludedRefs excludedRefs = ExcludedRefs.builder().build();
         //最短引用查找器
         ShortestPathFinder pathFinder = new ShortestPathFinder(excludedRefs);
@@ -237,8 +237,8 @@ public class Main {
                 node.exclusion, leakReferences);
     }
 
-    private static List<Reachability> computeExpectedReachability( List<LeakTraceElement> elements) {
-       return new ArrayList<>();
+    private static List<Reachability> computeExpectedReachability(List<LeakTraceElement> elements) {
+        return new ArrayList<>();
     }
 
     private static List<LeakReference> describeFields(Instance instance) {
@@ -296,29 +296,26 @@ public class Main {
         for (String md5 : bitmaps.keySet()) {
             BitmapWapper wapper = bitmaps.get(md5);
             if (wapper.count > 1) {
-                JSONObject object = new JSONObject();
-                object.put("duplcateCount", wapper.count);
-                object.put("bufferHash", md5);
 
+                StringBuffer sb = new StringBuffer();
 
-                JSONArray array = new JSONArray();
+                sb.append("duplcateCount").append(":").append(wapper.count).append("\n");
+                sb.append("bufferHash").append(":").append(md5).append("\n");
+
                 for (Instance instance : wapper.instances) {
-                    JSONObject bitmap = new JSONObject();
                     ArrayInstance buffer = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mBuffer");
                     Integer width = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mWidth");
                     Integer height = HahaHelper.fieldValue(((ClassInstance) instance).getValues(), "mHeight");
 
-                    bitmap.put("width", width);
-                    bitmap.put("height", height);
-                    bitmap.put("bufferSize", buffer.getSize());
-                    bitmap.put("stacks", getStack(instance));
-
-                    array.add(bitmap);
+                    sb.append("\t").append("width").append(":").append(width).append("\n");
+                    sb.append("\t").append("height").append(":").append(height).append("\n");
+                    sb.append("\t").append("bufferSize").append(":").append(buffer.getSize()).append("\n");
+                    sb.append("\t").append("stacks").append(":").append(getStack(instance)).append("\n");
+                    sb.append("--------------------").append("\n");
 
                     generateImage(md5, buffer, width, height);
                 }
-                object.put("bitmaps", array);
-                System.out.println(JsonUtil.formatJson(object.toJSONString()));
+                System.out.println(sb.toString());
             }
 
         }
@@ -326,6 +323,7 @@ public class Main {
 
     /**
      * 生成图片
+     *
      * @param md5
      * @param buffer
      * @param width

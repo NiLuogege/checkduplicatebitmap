@@ -19,6 +19,7 @@ package com.squareup.leakcanary;
 import androidx.annotation.NonNull;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,8 +73,10 @@ public final class LeakTrace implements Serializable {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        sb.append("\n");
         for (int i = 0; i < elements.size(); i++) {
             LeakTraceElement element = elements.get(i);
+            sb.append("\t\t");
             sb.append("* ");
             sb.append(element.toString(false)).append("\n");
         }
@@ -87,5 +90,14 @@ public final class LeakTrace implements Serializable {
             string += element.toDetailedString();
         }
         return string;
+    }
+
+    public ArrayList<String> toList() {
+        ArrayList<String> list = new ArrayList<>();
+        for (int i = 0; i < elements.size(); i++) {
+            LeakTraceElement element = elements.get(i);
+            list.add(element.toString(false));
+        }
+        return list;
     }
 }
