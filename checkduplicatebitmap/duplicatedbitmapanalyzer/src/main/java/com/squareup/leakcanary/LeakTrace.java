@@ -85,7 +85,7 @@ public final class LeakTrace implements Serializable {
 
     public @NonNull
     String toDetailedString() {
-        String string = "";
+        String string = "\n";
         for (LeakTraceElement element : elements) {
             string += element.toDetailedString();
         }

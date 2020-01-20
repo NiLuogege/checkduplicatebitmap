@@ -149,6 +149,7 @@ public class Main {
         //将 leakingNode 转换为 LeakTrace
         LeakTrace leakTrace = buildLeakTrace(result.leakingNode);
 
+//        return leakTrace.toDetailedString();
         return leakTrace.toString();
     }
 
